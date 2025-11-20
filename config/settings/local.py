@@ -34,7 +34,7 @@ LOGGING = {
 
 # Allow all host headers. UPDATE in production
 ALLOWED_HOSTS = config(
-    "ALLOWED_HOSTS", cast=lambda v: [s.strip() for s in v.split(",")]
+    "ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=lambda v: [s.strip() for s in v.split(",")]
 )
 
 # Password validation is enabled by default from base.py
@@ -98,11 +98,11 @@ SERVER_EMAIL = DEFAULT_FROM_EMAIL
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("POSTGRES_DB"),
-        "USER": config("POSTGRES_USER"),
-        "PASSWORD": config("POSTGRES_PASSWORD"),
-        "HOST": config("POSTGRES_HOST"),
-        "PORT": config("POSTGRES_PORT"),
+        "NAME": config("POSTGRES_DB", default="sportcards_db"),
+        "USER": config("POSTGRES_USER", default="postgres"),
+        "PASSWORD": config("POSTGRES_PASSWORD", default="postgres"),
+        "HOST": config("POSTGRES_HOST", default="localhost"),
+        "PORT": config("POSTGRES_PORT", default="5432"),
         # ✅ Reduced CONN_MAX_AGE to prevent connection pool exhaustion
         # Setting to 0 (None) closes connections after each request
         # This is crucial for django-tenants which switches schemas frequently
@@ -120,7 +120,7 @@ DATABASES = {
     },
 }
 
-PGCRYPTO_KEY = config("PGCRYPTO_KEY")
+PGCRYPTO_KEY = config("PGCRYPTO_KEY", default="")
 
 
 

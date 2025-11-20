@@ -71,11 +71,19 @@ jobs:
         DEBUG=False
         APP_ENVIRONMENT=dev
         DJANGO_SETTINGS_MODULE=config.settings.local
+        ALLOWED_HOSTS=localhost,127.0.0.1
+        POSTGRES_DB=test_sportcards_db
+        POSTGRES_USER=postgres
+        POSTGRES_PASSWORD=postgres
+        POSTGRES_HOST=localhost
+        POSTGRES_PORT=5432
+        PGCRYPTO_KEY=test-pgcrypto-key-for-ci
         DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_sportcards_db
         REDIS_URL=redis://localhost:6379/0
         CELERY_BROKER_URL=redis://localhost:6379/0
         CELERY_RESULT_BACKEND=redis://localhost:6379/0
         EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+        DEFAULT_FROM_EMAIL=test@example.com
         EOF
 
     - name: Run migrations
