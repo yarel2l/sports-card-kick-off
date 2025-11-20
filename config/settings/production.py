@@ -120,15 +120,15 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 200 * 1024 * 1024  # 200 MB
 
 
 # Databases
-PGCRYPTO_KEY = config("PGCRYPTO_KEY")
+PGCRYPTO_KEY = config("PGCRYPTO_KEY", default="")
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("POSTGRES_DB"),
-        "USER": config("POSTGRES_USER"),
-        "PASSWORD": config("POSTGRES_PASSWORD"),
-        "HOST": config("POSTGRES_HOST"),
-        "PORT": config("POSTGRES_PORT"),
+        "NAME": config("POSTGRES_DB", default="sportcards_db"),
+        "USER": config("POSTGRES_USER", default="postgres"),
+        "PASSWORD": config("POSTGRES_PASSWORD", default=""),
+        "HOST": config("POSTGRES_HOST", default="localhost"),
+        "PORT": config("POSTGRES_PORT", default="5432"),
     },
 }
 

@@ -69,6 +69,7 @@ jobs:
         cat > .env << EOF
         SECRET_KEY=test-secret-key-for-github-actions-only
         DEBUG=False
+        APP_ENVIRONMENT=dev
         DJANGO_SETTINGS_MODULE=config.settings.local
         DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_sportcards_db
         REDIS_URL=redis://localhost:6379/0

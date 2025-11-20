@@ -1,7 +1,9 @@
 from decouple import config
 
-if config("APP_ENVIRONMENT") == "dev":
-    from .local import *  # pylint: disable=wildcard-import
+# Default to local settings if APP_ENVIRONMENT is not set
+app_env = config("APP_ENVIRONMENT", default="dev")
 
-if config("APP_ENVIRONMENT") == "prod":
+if app_env == "dev":
+    from .local import *  # pylint: disable=wildcard-import
+elif app_env == "prod":
     from .production import *  # pylint: disable=wildcard-import

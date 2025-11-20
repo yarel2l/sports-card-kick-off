@@ -258,8 +258,8 @@ SIMPLE_JWT = {
     "UPDATE_LAST_LOGIN": True,
 
     "ALGORITHM": "RS256",
-    "SIGNING_KEY": config('PRIVATE_KEY', None).replace('\\n', '\n'), #open('private_key.pem').read(),
-    "VERIFYING_KEY": config('PUBLIC_KEY', None).replace('\\n', '\n'), #open('public_key.pem').read(),
+    "SIGNING_KEY": config('PRIVATE_KEY', default=None).replace('\\n', '\n') if config('PRIVATE_KEY', default=None) else None, #open('private_key.pem').read(),
+    "VERIFYING_KEY": config('PUBLIC_KEY', default=None).replace('\\n', '\n') if config('PUBLIC_KEY', default=None) else None, #open('public_key.pem').read(),
     "AUTH_HEADER_TYPES": ("Bearer",),
     "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
     "USER_ID_FIELD": "account_id",
