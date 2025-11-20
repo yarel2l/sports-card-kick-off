@@ -388,6 +388,10 @@ For questions or issues, contact support@sportscardkickoff.com
             "name": "System Configuration",
             "description": "System settings and configuration management endpoints (admin only)"
         },
+        {
+            "name": "Search",
+            "description": "Sports card search operations with AI-powered query parsing and multi-site scraping"
+        },
     ],
     "ENUM_NAME_OVERRIDES": {
         "ValidationErrorEnum": "drf_standardized_errors.openapi_serializers.ValidationErrorEnum.choices",

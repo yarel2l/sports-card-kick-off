@@ -59,7 +59,51 @@ class CreateSearchView(generics.CreateAPIView):
     @extend_schema(
         tags=['Search'],
         summary="Create new search",
-        description="Create a new sports card search and initiate scraping across configured sites.",
+        description="""
+        Create a new sports card search and initiate AI-powered scraping across multiple marketplaces.
+
+        **Process:**
+        1. Validates search query (minimum 3 characters)
+        2. Creates search record with status PENDING
+        3. Triggers asynchronous scraping task via Celery
+        4. Returns search ID and initial status immediately
+        5. AI orchestrator processes query in background (15-30 seconds)
+        6. Results stored and accessible via search ID
+
+        **AI-Powered Features:**
+        - Automatic player name extraction
+        - Card year detection
+        - Set name identification
+        - Grade parsing (PSA, BGS, CGC, etc.)
+        - Natural language query understanding
+
+        **Scraping Process:**
+        - Executes across multiple sites in parallel
+        - Uses LangChain/LangGraph orchestration
+        - Playwright-based fetching with anti-detection
+        - Traditional + LLM-based parsing for accuracy
+        - Results aggregated by site type (SALES, AUCTION, POPULATION)
+
+        **Query Tips:**
+        - Include player name for best results
+        - Add year to narrow search: "1986", "2003"
+        - Specify grade: "PSA 10", "BGS 9.5"
+        - Include set name: "Fleer", "Topps Chrome"
+        - Example: "Michael Jordan 1986 Fleer PSA 10"
+
+        **Response:**
+        - Immediate return with search ID
+        - Status: PENDING (will update to PROCESSING → COMPLETED)
+        - Poll status via GET /api/v1/search/{search_id}/
+        - Retrieve results when status is COMPLETED/PARTIAL
+
+        **Status Flow:**
+        ```
+        PENDING → PROCESSING → COMPLETED
+                            → FAILED
+                            → PARTIAL
+        ```
+        """,
         request=SearchCreateSerializer,
         responses={
             201: SearchSerializer,
@@ -145,7 +189,38 @@ class SearchHistoryView(generics.ListAPIView):
     @extend_schema(
         tags=['Search'],
         summary="Get search history",
-        description="Get the authenticated user's search history ordered by most recent.",
+        description="""
+        Retrieve the authenticated user's search history ordered by most recent access.
+
+        **Purpose:**
+        - Display user's past searches for quick reference
+        - Allow re-execution of previous searches
+        - Track search activity and patterns
+        - Provide quick access to successful searches
+
+        **Response Data:**
+        - Query text from past searches
+        - Success status of each search
+        - Total number of items found
+        - Last accessed timestamp
+        - Paginated results for performance
+
+        **Pagination:**
+        - Default: 20 results per page
+        - Maximum: 100 results per page
+        - Use `?page=2` for next page
+        - Use `?page_size=50` to customize page size
+
+        **Use Cases:**
+        - Dashboard: Show recent search activity
+        - Search Bar: Display search suggestions from history
+        - Analytics: Track most searched queries
+        - Quick Access: Re-run successful searches
+
+        **Sorting:**
+        - Ordered by `accessed_at` (most recent first)
+        - Includes searches from last 1000 searches
+        """,
         responses={
             200: SearchHistorySerializer(many=True),
             401: OpenApiResponse(
@@ -207,7 +282,47 @@ class SearchDetailView(generics.RetrieveAPIView):
     @extend_schema(
         tags=['Search'],
         summary="Get search details",
-        description="Get detailed information about a specific search including all results.",
+        description="""        Get detailed information about a specific search including status, metrics, and results summary.
+
+        **Purpose:**
+        - Monitor search status in real-time
+        - View parsed query components (player, year, set, grade)
+        - Check execution metrics and performance
+        - Access aggregated results from all sites
+        - Track progress of active searches
+
+        **Response Includes:**
+        - Complete search metadata
+        - AI-extracted query components
+        - Execution statistics (time, sites, items)
+        - Results from each scraped site
+        - Error messages if applicable
+
+        **Status Monitoring:**
+        - PENDING: Search queued, not yet started
+        - PROCESSING: AI orchestrator actively scraping
+        - COMPLETED: All sites successfully scraped
+        - PARTIAL: Some sites succeeded, others failed
+        - FAILED: All sites failed or critical error
+        - CANCELLED: User cancelled the search
+
+        **Polling Strategy:**
+        For real-time updates, poll this endpoint every 2-3 seconds while status is PROCESSING:
+        ```javascript
+        const interval = setInterval(async () => {
+          const data = await fetchSearch(searchId);
+          if (['COMPLETED', 'FAILED', 'PARTIAL', 'CANCELLED'].includes(data.status)) {
+            clearInterval(interval);
+            // Handle results
+          }
+        }, 2000);
+        ```
+
+        **Results Summary:**
+        - Nested results array shows outcome from each site
+        - Each result includes: site name, status, item count, execution time
+        - Use GET /{search_id}/results/ for full item details
+        """,
         responses={
             200: SearchDetailSerializer,
             401: OpenApiResponse(
@@ -293,7 +408,43 @@ class SearchResultsView(generics.ListAPIView):
     @extend_schema(
         tags=['Search'],
         summary="Get search results",
-        description="Get detailed results from all sites for a specific search.",
+        description="""        Get detailed results with full item data for a specific search.
+
+        **Purpose:**
+        - Display complete card listings to users
+        - Show item details (title, price, images, seller info)
+        - Analyze results from specific sites
+        - Build result galleries or comparison views
+        - Export data for analysis
+
+        **Response Data Structure:**
+        Each result contains:
+        - **Site Information**: Name, type, status
+        - **Items Array**: Full card listing details
+        - **Metadata**: Execution time, errors, page count
+        - **Statistics**: Total items found, items scraped
+
+        **Item Details Include:**
+        - Title and description
+        - Price information (amount, currency, shipping)
+        - Grade details (company, grade, numeric value)
+        - Seller information (name, rating, feedback count)
+        - Listing type (auction, buy-it-now)
+        - Condition and grading status
+        - Images and URLs
+        - Location and timing data
+
+        **Site Types:**
+        - **SALES**: Current marketplace listings (eBay, COMC)
+        - **AUCTION**: Active/past auctions (Goldin, Heritage)
+        - **POPULATION**: Grading population data (PSA, BGS)
+        - **MARKETPLACE**: Trading platforms (130Point)
+
+        **Pagination:**
+        - Results are paginated by site
+        - Each site result contains all items from that site
+        - Ordered by items_count (most items first)
+        """,
         responses={
             200: ScrapeResultSerializer(many=True),
             401: OpenApiResponse(
@@ -386,7 +537,39 @@ class CancelSearchView(APIView):
     @extend_schema(
         tags=['Search'],
         summary="Cancel search",
-        description="Cancel a search that is currently pending or in progress.",
+        description="""        Cancel a search that is currently in PENDING or PROCESSING status.
+
+        **Purpose:**
+        - Stop a long-running or incorrect search
+        - Free up system resources
+        - Prevent unwanted results from being processed
+        - Allow user to start a corrected search
+
+        **Cancellation Process:**
+        1. Validates search belongs to authenticated user
+        2. Checks search is in cancellable state (PENDING or PROCESSING)
+        3. Updates status to FAILED
+        4. Sets error message: "Search cancelled by user"
+        5. Preserves any partial results already collected
+
+        **Important Notes:**
+        - Only PENDING or PROCESSING searches can be cancelled
+        - COMPLETED, FAILED, or CANCELLED searches cannot be cancelled
+        - Cancellation may not stop immediately (depends on Celery worker state)
+        - The search record is not deleted, only marked as FAILED
+        - Partial results collected before cancellation are preserved
+
+        **Use Cases:**
+        - User made typo in query
+        - Search taking too long
+        - User wants to refine search criteria
+        - Accidental duplicate search
+
+        **Response:**
+        - Success message with previous status
+        - Search ID for reference
+        - Updated search accessible via GET /{search_id}/
+        """,
         request=None,
         responses={
             200: OpenApiResponse(
@@ -472,7 +655,53 @@ class AvailableSitesView(generics.ListAPIView):
     @extend_schema(
         tags=['Search'],
         summary="Get available sites",
-        description="Get list of all active sites available for scraping.",
+        description="""        Get list of all active scraping sites and data sources.
+
+        **Purpose:**
+        - Display available marketplaces to users
+        - Show which sites will be scraped
+        - Provide information about data sources
+        - Help users understand coverage
+
+        **Site Information:**
+        - **Name**: Display name (e.g., 'eBay', 'PSA')
+        - **Slug**: URL-friendly identifier
+        - **Base URL**: Site's home page
+        - **Site Type**: Category of data source
+        - **Priority**: Scraping importance (HIGH, MEDIUM, LOW)
+        - **Active Status**: Whether currently enabled
+
+        **Site Types:**
+        
+        **SALES** - Current marketplace listings
+        - eBay: Auction and fixed-price listings
+        - COMC: Check Out My Cards marketplace
+        - MySlabs: Graded card marketplace
+        
+        **AUCTION** - Live and past auctions
+        - Goldin Auctions: High-end card auctions
+        - Heritage Auctions: Sports collectibles
+        - SCP Auctions: Sports memorabilia
+        
+        **POPULATION** - Grading population data
+        - PSA: Population reports and cert lookup
+        - BGS: Beckett grading population
+        - CGC: CGC Cards population data
+        
+        **MARKETPLACE** - Trading platforms
+        - 130Point: Sales data and population
+        - StarStock: Card investment platform
+
+        **Priority Levels:**
+        - **HIGH**: Scraped first, most reliable sources
+        - **MEDIUM**: Standard priority
+        - **LOW**: Scraped last, optional sources
+
+        **Response:**
+        - No pagination (returns all active sites)
+        - Typically 5-10 sites total
+        - Only active sites are returned
+        """,
         responses={
             200: TargetSiteSerializer(many=True),
             401: OpenApiResponse(
@@ -537,7 +766,56 @@ class UserSearchStatsView(APIView):
     @extend_schema(
         tags=['Search'],
         summary="Get user statistics",
-        description="Get comprehensive search statistics for the authenticated user.",
+        description="""        Get comprehensive search statistics and analytics for the authenticated user.
+
+        **Purpose:**
+        - Display user dashboard with activity metrics
+        - Show search success rate and performance
+        - Identify most searched players
+        - Provide insights into search behavior
+        - Track total items discovered
+
+        **Statistics Included:**
+        
+        **Search Metrics:**
+        - Total searches created
+        - Successfully completed searches
+        - Failed searches
+        - Success rate percentage
+        
+        **Discovery Metrics:**
+        - Total items found across all searches
+        - Average items per search
+        - Total unique cards discovered
+        
+        **Performance Metrics:**
+        - Average execution time per search
+        - Fastest/slowest searches
+        - Site success rates
+        
+        **Trending Data:**
+        - Top 5 most searched players
+        - Search count per player
+        - Recent search activity (last 5 searches)
+        
+        **Use Cases:**
+        - User dashboard display
+        - Activity overview page
+        - Search behavior analytics
+        - Performance monitoring
+        - Personalized recommendations
+
+        **Response Format:**
+        - All counts as integers
+        - Times in seconds (float)
+        - Most searched players as array of objects
+        - Recent searches as full Search objects
+
+        **Performance:**
+        - Aggregated in real-time
+        - Cached for 5 minutes
+        - Optimized database queries
+        """,
         responses={
             200: UserStatsSerializer,
             401: OpenApiResponse(
