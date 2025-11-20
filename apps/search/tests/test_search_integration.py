@@ -36,43 +36,48 @@ class SearchFlowIntegrationTests(TestCase):
             agent_class_name='EbayAgent',
         )
 
-    @patch('asyncio.run')
-    def test_successful_search_flow(self, mock_asyncio_run):
+    @patch('apps.scraping.orchestrators.ScraperOrchestrator')
+    def test_successful_search_flow(self, mock_orchestrator_class):
         """Test complete successful search flow."""
         query = 'Michael Jordan 1986 Fleer PSA 10'
         
-        # Mock asyncio.run to return orchestrator result
-        mock_asyncio_run.return_value = {
-            'success': True,
-            'results': {
-                'ebay': MagicMock(
-                    success=True,
-                    items=[MagicMock(
-                        model_dump=MagicMock(return_value={
-                            'title': '1986 Fleer #57 Michael Jordan PSA 10',
-                            'price': 1850.00,
-                            'url': 'https://www.ebay.com/itm/123456789'
-                        })
-                    )],
-                    total_results=10,
-                    metadata=MagicMock(
-                        execution_time_seconds=10.5,
-                        errors=[],
-                        model_dump=MagicMock(return_value={
-                            'execution_time_seconds': 10.5,
-                            'errors': []
-                        })
+        # Mock orchestrator to return successful result
+        mock_orchestrator = mock_orchestrator_class.return_value
+        
+        async def mock_orchestrate(*args, **kwargs):
+            return {
+                'success': True,
+                'results': {
+                    'ebay': MagicMock(
+                        success=True,
+                        items=[MagicMock(
+                            model_dump=MagicMock(return_value={
+                                'title': '1986 Fleer #57 Michael Jordan PSA 10',
+                                'price': 1850.00,
+                                'url': 'https://www.ebay.com/itm/123456789'
+                            })
+                        )],
+                        total_results=10,
+                        metadata=MagicMock(
+                            execution_time_seconds=10.5,
+                            errors=[],
+                            model_dump=MagicMock(return_value={
+                                'execution_time_seconds': 10.5,
+                                'errors': []
+                            })
+                        )
                     )
-                )
-            },
-            'errors': {},
-            'metrics': {
-                'successful_agents': 1,
-                'failed_agents': 0,
-                'total_items': 10,
-                'execution_time_seconds': 10.5
+                },
+                'errors': {},
+                'metrics': {
+                    'successful_agents': 1,
+                    'failed_agents': 0,
+                    'total_items': 10,
+                    'execution_time_seconds': 10.5
+                }
             }
-        }
+        
+        mock_orchestrator.orchestrate = mock_orchestrate
         
         # Create search
         search = Search.objects.create(
@@ -114,8 +119,8 @@ class SearchFlowIntegrationTests(TestCase):
         self.assertTrue(history.first().was_successful)
         self.assertEqual(history.first().total_results, 1)  # Based on actual items found
 
-    @patch('asyncio.run')
-    def test_partial_search_flow(self, mock_asyncio_run):
+    @patch('apps.scraping.orchestrators.ScraperOrchestrator')
+    def test_partial_search_flow(self, mock_orchestrator_class):
         """Test search with partial success (some sites fail)."""
         # Create second site
         comc = TargetSite.objects.create(
@@ -129,33 +134,38 @@ class SearchFlowIntegrationTests(TestCase):
         
         query = 'LeBron James Rookie'
         
-        # Mock asyncio.run to return partial success
-        mock_asyncio_run.return_value = {
-            'success': True,
-            'results': {
-                'ebay': MagicMock(
-                    success=True,
-                    items=[MagicMock(
-                        model_dump=MagicMock(return_value={'title': 'Card', 'price': 100.00})
-                    )],
-                    total_results=5,
-                    metadata=MagicMock(
-                        execution_time_seconds=5.0,
-                        errors=[],
-                        model_dump=MagicMock(return_value={'execution_time_seconds': 5.0, 'errors': []})
+        # Mock orchestrator to return partial success
+        mock_orchestrator = mock_orchestrator_class.return_value
+        
+        async def mock_orchestrate(*args, **kwargs):
+            return {
+                'success': True,
+                'results': {
+                    'ebay': MagicMock(
+                        success=True,
+                        items=[MagicMock(
+                            model_dump=MagicMock(return_value={'title': 'Card', 'price': 100.00})
+                        )],
+                        total_results=5,
+                        metadata=MagicMock(
+                            execution_time_seconds=5.0,
+                            errors=[],
+                            model_dump=MagicMock(return_value={'execution_time_seconds': 5.0, 'errors': []})
+                        )
                     )
-                )
-            },
-            'errors': {
-                'comc': 'Connection timeout'
-            },
-            'metrics': {
-                'successful_agents': 1,
-                'failed_agents': 1,
-                'total_items': 5,
-                'execution_time_seconds': 5.0
+                },
+                'errors': {
+                    'comc': 'Connection timeout'
+                },
+                'metrics': {
+                    'successful_agents': 1,
+                    'failed_agents': 1,
+                    'total_items': 5,
+                    'execution_time_seconds': 5.0
+                }
             }
-        }
+        
+        mock_orchestrator.orchestrate = mock_orchestrate
         
         # Create search
         search = Search.objects.create(
@@ -193,25 +203,30 @@ class SearchFlowIntegrationTests(TestCase):
         self.assertEqual(success_results.count(), 1)
         self.assertEqual(failed_results.count(), 1)
 
-    @patch('asyncio.run')
-    def test_failed_search_flow(self, mock_asyncio_run):
+    @patch('apps.scraping.orchestrators.ScraperOrchestrator')
+    def test_failed_search_flow(self, mock_orchestrator_class):
         """Test complete search failure."""
         query = 'Invalid Query'
         
-        # Mock asyncio.run to return failure
-        mock_asyncio_run.return_value = {
-            'success': False,
-            'results': {},
-            'errors': {
-                'ebay': 'Failed to connect to eBay'
-            },
-            'metrics': {
-                'successful_agents': 0,
-                'failed_agents': 1,
-                'total_items': 0,
-                'execution_time_seconds': 2.0
+        # Mock orchestrator to return failure
+        mock_orchestrator = mock_orchestrator_class.return_value
+        
+        async def mock_orchestrate(*args, **kwargs):
+            return {
+                'success': False,
+                'results': {},
+                'errors': {
+                    'ebay': 'Failed to connect to eBay'
+                },
+                'metrics': {
+                    'successful_agents': 0,
+                    'failed_agents': 1,
+                    'total_items': 0,
+                    'execution_time_seconds': 2.0
+                }
             }
-        }
+        
+        mock_orchestrator.orchestrate = mock_orchestrate
         
         # Create search
         search = Search.objects.create(
@@ -259,11 +274,17 @@ class SearchTaskRetryTests(TestCase):
             password='testpass123'
         )
 
-    @patch('asyncio.run')
-    def test_task_exception_handling(self, mock_asyncio_run):
+    @patch('apps.scraping.orchestrators.ScraperOrchestrator')
+    def test_task_exception_handling(self, mock_orchestrator_class):
         """Test that task handles exceptions properly."""
-        # Mock asyncio.run to raise exception
-        mock_asyncio_run.side_effect = Exception('Unexpected error')
+        # Mock orchestrator to raise exception
+        mock_orchestrator = mock_orchestrator_class.return_value
+        
+        # Create an async mock that raises an exception
+        async def mock_orchestrate(*args, **kwargs):
+            raise Exception('Unexpected error')
+        
+        mock_orchestrator.orchestrate = mock_orchestrate
         
         # Create search
         search = Search.objects.create(

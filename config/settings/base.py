@@ -250,16 +250,32 @@ CELERY_BEAT_SCHEDULE = {
     # },
 }
 
+# JWT Configuration
+# Use RS256 (RSA keys) in production, HS256 (symmetric key) in testing/dev without keys
+_private_key = config('PRIVATE_KEY', default=None)
+_public_key = config('PUBLIC_KEY', default=None)
+
+if _private_key and _public_key:
+    # Production: Use RSA keys
+    JWT_ALGORITHM = "RS256"
+    JWT_SIGNING_KEY = _private_key.replace('\\n', '\n')
+    JWT_VERIFYING_KEY = _public_key.replace('\\n', '\n')
+else:
+    # Development/Testing: Use symmetric key
+    JWT_ALGORITHM = "HS256"
+    JWT_SIGNING_KEY = SECRET_KEY
+    JWT_VERIFYING_KEY = None
+
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
 
-    "ALGORITHM": "RS256",
-    "SIGNING_KEY": config('PRIVATE_KEY', default=None).replace('\\n', '\n') if config('PRIVATE_KEY', default=None) else None, #open('private_key.pem').read(),
-    "VERIFYING_KEY": config('PUBLIC_KEY', default=None).replace('\\n', '\n') if config('PUBLIC_KEY', default=None) else None, #open('public_key.pem').read(),
+    "ALGORITHM": JWT_ALGORITHM,
+    "SIGNING_KEY": JWT_SIGNING_KEY,
+    "VERIFYING_KEY": JWT_VERIFYING_KEY,
     "AUTH_HEADER_TYPES": ("Bearer",),
     "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
     "USER_ID_FIELD": "account_id",
