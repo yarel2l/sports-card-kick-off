@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'apps.accounts',
     'apps.scraping',
     'apps.search',
+    'apps.catalog',
 
 ]
 

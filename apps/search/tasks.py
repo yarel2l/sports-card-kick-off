@@ -122,6 +122,24 @@ def execute_search_task(self, search_id: str) -> Dict[str, Any]:
                             ),
                         }
                     )
+
+                    # Resolve each listing into the canonical catalog and record
+                    # price observations. Best-effort: never let catalog ingestion
+                    # break the search flow.
+                    try:
+                        from apps.catalog.services.ingest import ingest_items
+                        observations = ingest_items(
+                            result_data['items'], source=agent_name
+                        )
+                        logger.info(
+                            f"Catalog: ingested {len(observations)} price "
+                            f"observations from {agent_name}"
+                        )
+                    except Exception as ingest_error:
+                        logger.error(
+                            f"Catalog ingestion failed for {agent_name}: {ingest_error}",
+                            exc_info=True,
+                        )
                     
                     if result_status == ScrapeResult.Status.SUCCESS:
                         successful_sites += 1
