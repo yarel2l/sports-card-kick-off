@@ -13,15 +13,28 @@ DEBUG = False
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-ALLOWED_HOSTS = ["*", ".sportscardkickoff.com"]
+ALLOWED_HOSTS = config(
+    "ALLOWED_HOSTS",
+    default=".sportscardkickoff.com",
+    cast=lambda v: [s.strip() for s in v.split(",") if s.strip()],
+)
 
-CORS_ALLOW_ALL_ORIGINS = True
+# Never allow all origins in production. Provide the trusted frontend domains
+# via the CORS_ALLOWED_ORIGINS environment variable (comma separated).
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = config(
+    "CORS_ALLOWED_ORIGINS",
+    default="https://sportscardkickoff.com,https://www.sportscardkickoff.com",
+    cast=lambda v: [s.strip() for s in v.split(",") if s.strip()],
+)
 CSRF_TRUSTED_ORIGINS = ["https://*.sportscardkickoff.com"]
 
-# Seguridad de cookies y redirección SSL
-SESSION_COOKIE_SECURE = False  # Dado que Nginx recibe HTTP del ALB
-CSRF_COOKIE_SECURE = False  # Dado que Nginx recibe HTTP del ALB
-SECURE_SSL_REDIRECT = False  # Dado que Nginx recibe HTTP del ALB
+# Cookie/SSL security. TLS terminates at the ALB and SECURE_PROXY_SSL_HEADER
+# (set above) lets Django detect HTTPS, so cookies must be marked secure.
+# SECURE_SSL_REDIRECT stays opt-in to avoid redirect loops behind the proxy.
+SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=True, cast=bool)
+CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=True, cast=bool)
+SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=False, cast=bool)
 
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SECURE_BROWSER_XSS_FILTER = True
@@ -61,10 +74,9 @@ ANYMAIL = {
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@sportscardkickoff.com")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
-# Config for django-tenants
-REWRITE_STATIC_URLS = True
+# Static file finders (django-tenants is not used by this project, so the
+# standard Django finders are sufficient).
 STATICFILES_FINDERS = [
-    "django_tenants.staticfiles.finders.TenantFileSystemFinder",
     "django.contrib.staticfiles.finders.FileSystemFinder",
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
 ]

@@ -16,7 +16,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-default-key-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Driven by environment so production defaults to a safe value. Each
+# environment-specific settings module may override this explicitly.
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 
 # Application definition
@@ -64,7 +66,9 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'config.urls'
-CORS_ALLOW_ALL_ORIGINS = True
+# Closed by default. Development settings may open this up; production should
+# set CORS_ALLOWED_ORIGINS explicitly to the trusted frontend domains.
+CORS_ALLOW_ALL_ORIGINS = False
 
 TEMPLATES = [
     {

@@ -9,17 +9,17 @@ def get_permanent_s3_url(file_name):
         aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
     )
     media_location = getattr(settings, "AWS_PRIVATE_MEDIA_LOCATION", "media")
+    # SigV4 presigned URLs are capped at 7 days (604800s) by S3, so a multi-year
+    # expiry is both ineffective and a security risk if the URL leaks. Default to
+    # the maximum and allow override via settings.
+    expires_in = getattr(settings, "AWS_PRESIGNED_URL_MAX_EXPIRY", 604800)
     permanent_url = s3_client.generate_presigned_url(
         "get_object",
         Params={
             "Bucket": settings.AWS_STORAGE_BUCKET_NAME_MEDIA,
             "Key": f"{media_location}/{file_name}",
         },
-        ExpiresIn=60
-        * 60
-        * 24
-        * 365
-        * 10,  # 🔥 URL válida por 10 años (ajústalo según necesites)
+        ExpiresIn=expires_in,
     )
     return permanent_url
 
