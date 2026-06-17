@@ -38,5 +38,12 @@ def evaluate_alerts_for_observation(observation) -> List[PriceAlert]:
                 "Price alert %s fired at %s for card %s",
                 alert.id, observation.price, observation.card_id,
             )
+            # Notify the owner. Best-effort: never let a mail failure break
+            # ingestion or the rest of the alert batch.
+            try:
+                from ..notifications import send_alert_notification
+                send_alert_notification(alert)
+            except Exception:
+                logger.exception("Alert notification dispatch failed for %s", alert.id)
 
     return fired
