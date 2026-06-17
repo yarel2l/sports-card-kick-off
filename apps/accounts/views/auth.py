@@ -2,13 +2,18 @@
 Authentication Views.
 """
 
+import logging
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.translation import gettext_lazy as _
 from rest_framework import status, generics, permissions
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView as BaseTokenRefreshView
@@ -26,6 +31,7 @@ from ..serializers import (
 )
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 @extend_schema_view(
@@ -106,6 +112,8 @@ class UserRegistrationView(generics.CreateAPIView):
     """
     serializer_class = UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth_register'
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -136,6 +144,8 @@ class UserLoginView(APIView):
     """
     permission_classes = [permissions.AllowAny]
     serializer_class = UserLoginSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth_login'
 
     @extend_schema(
         tags=['Authentication'],
@@ -338,6 +348,8 @@ class PasswordResetRequestView(APIView):
     """
     permission_classes = [permissions.AllowAny]
     serializer_class = PasswordResetRequestSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth_password_reset'
 
     @extend_schema(
         tags=['Password Management'],
@@ -412,20 +424,38 @@ class PasswordResetRequestView(APIView):
             token = default_token_generator.make_token(user)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
 
-            # TODO: Send email with reset link
-            # For now, we'll return the token and uid in response (development only)
-            # In production, these should be sent via email only
-
             # Reset link format: /reset-password/{uid}/{token}/
             reset_url = f"{request.build_absolute_uri('/api/v1/auth/password-reset-confirm/')}{uid}/{token}/"
 
-            return Response({
+            # Send the reset link by email. Never expose the token in the API
+            # response in non-debug environments (it would let anyone who can
+            # read the response take over the account).
+            try:
+                send_mail(
+                    subject=str(_('Password reset request')),
+                    message=str(_(
+                        'Use the following link to reset your password: %(url)s'
+                    )) % {'url': reset_url},
+                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+                    recipient_list=[user.email],
+                    fail_silently=True,
+                )
+            except Exception:
+                logger.exception('Failed to send password reset email')
+
+            response_data = {
                 'message': _('Password reset email has been sent.'),
-                # Remove these in production - only for development
-                'reset_url': reset_url,
-                'uid': uid,
-                'token': token,
-            }, status=status.HTTP_200_OK)
+            }
+            # Only expose the raw token/uid when running with DEBUG enabled,
+            # to keep local development convenient without leaking secrets.
+            if settings.DEBUG:
+                response_data.update({
+                    'reset_url': reset_url,
+                    'uid': uid,
+                    'token': token,
+                })
+
+            return Response(response_data, status=status.HTTP_200_OK)
 
         except User.DoesNotExist:
             # Don't reveal that user doesn't exist (security)

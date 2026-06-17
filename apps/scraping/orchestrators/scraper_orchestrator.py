@@ -14,6 +14,7 @@ from langgraph.graph import StateGraph, END
 from langchain_core.messages import HumanMessage, AIMessage
 
 from ..agents import EbayAgent, BaseScraperAgent
+from ..agents.registry import available_agents as registry_agents
 from ..schemas import BaseScrapeResult, EbayScrapeResult
 
 logger = logging.getLogger(__name__)
@@ -42,26 +43,31 @@ class ScraperOrchestrator:
     multiple scraping agents and aggregate their results.
     """
 
-    def __init__(self, use_llm: bool = True):
+    def __init__(self, use_llm: bool = True, agents: Optional[Dict[str, Any]] = None):
         """
         Initialize the orchestrator with available agents.
 
         Args:
             use_llm: If True, agents will use LLM extraction with traditional fallback.
                     If False, agents will use only traditional parsing.
+            agents: Optional explicit mapping of slug -> agent class. Defaults to
+                    every agent in the global registry, so new marketplaces become
+                    available simply by registering them.
         """
         self.use_llm = use_llm
 
-        # Available agent classes (all unified now)
-        self.available_agents = {
-            'ebay': EbayAgent,
-            # Add more agents here as they're implemented:
-            # 'psa': PsaAgent,
-            # '130point': Point130Agent,
-        }
+        # Discover agents from the registry unless an explicit set is provided.
+        self.available_agents = dict(agents) if agents is not None else registry_agents()
 
         # Build the LangGraph workflow
         self.workflow = self._build_workflow()
+
+    def _instantiate(self, agent_cls):
+        """Instantiate an agent, passing use_llm when the agent accepts it."""
+        try:
+            return agent_cls(use_llm=self.use_llm)
+        except TypeError:
+            return agent_cls()
 
     def _build_workflow(self) -> StateGraph:
         """
@@ -75,7 +81,7 @@ class ScraperOrchestrator:
 
         # Add nodes
         workflow.add_node("initialize", self._initialize_node)
-        workflow.add_node("scrape_ebay", self._scrape_ebay_node)
+        workflow.add_node("scrape", self._scrape_node)
         workflow.add_node("aggregate_results", self._aggregate_results_node)
 
         # Set entry point
@@ -86,13 +92,13 @@ class ScraperOrchestrator:
             "initialize",
             self._route_after_init,
             {
-                "scrape": "scrape_ebay",
+                "scrape": "scrape",
                 "end": END,
             }
         )
 
         # Connect scrape node to aggregation
-        workflow.add_edge("scrape_ebay", "aggregate_results")
+        workflow.add_edge("scrape", "aggregate_results")
         workflow.add_edge("aggregate_results", END)
 
         # Compile the graph
@@ -132,46 +138,51 @@ class ScraperOrchestrator:
             return "scrape"
         return "end"
 
-    async def _scrape_ebay_node(self, state: ScraperState) -> ScraperState:
+    async def _scrape_node(self, state: ScraperState) -> ScraperState:
         """
-        Execute eBay scraping.
+        Execute every requested agent concurrently and collect their results.
+
+        This is source-agnostic: each agent in ``agents_to_run`` is instantiated
+        from the registry and run in parallel, so adding marketplaces requires no
+        changes here.
 
         Args:
             state: Current workflow state
 
         Returns:
-            Updated state with eBay results
+            Updated state with per-agent results and errors
         """
-        if 'ebay' not in state.get('agents_to_run', []):
+        agents_to_run = [
+            name for name in state.get('agents_to_run', [])
+            if name in self.available_agents
+        ]
+        if not agents_to_run:
             return state
 
-        logger.info("Executing eBay scraping agent")
+        logger.info(f"Executing scraping agents: {', '.join(agents_to_run)}")
 
-        try:
-            agent = EbayAgent(use_llm=self.use_llm)
-            result = await agent.scrape(state['query'])
+        async def run_one(name: str):
+            try:
+                agent = self._instantiate(self.available_agents[name])
+                result = await agent.scrape(state['query'])
+                return name, result, None
+            except Exception as e:  # isolate per-agent failures
+                error_msg = f"{name} scraping failed: {str(e)}"
+                logger.error(error_msg)
+                return name, None, error_msg
 
-            return {
-                **state,
-                "results": {
-                    **state.get('results', {}),
-                    'ebay': result
-                },
-                "status": "scraping_completed",
-            }
+        outcomes = await asyncio.gather(*(run_one(n) for n in agents_to_run))
 
-        except Exception as e:
-            error_msg = f"eBay scraping failed: {str(e)}"
-            logger.error(error_msg)
+        results = dict(state.get('results', {}))
+        errors = dict(state.get('errors', {}))
+        for name, result, error in outcomes:
+            if error:
+                errors[name] = error
+            else:
+                results[name] = result
 
-            return {
-                **state,
-                "errors": {
-                    **state.get('errors', {}),
-                    'ebay': error_msg
-                },
-                "status": "scraping_completed_with_errors",
-            }
+        status = "scraping_completed" if not errors else "scraping_completed_with_errors"
+        return {**state, "results": results, "errors": errors, "status": status}
 
     def _aggregate_results_node(self, state: ScraperState) -> ScraperState:
         """
@@ -323,7 +334,7 @@ class ScraperOrchestrator:
         for agent_name in agents:
             if agent_name in self.available_agents:
                 agent_class = self.available_agents[agent_name]
-                agent_instances.append(agent_class())
+                agent_instances.append(self._instantiate(agent_class))
                 agent_names.append(agent_name)
 
         if not agent_instances:

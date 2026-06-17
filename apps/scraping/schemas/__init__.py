@@ -15,6 +15,18 @@ from .ebay_schemas import (
     EbayScrapeResult,
     EbaySearchFilters,
 )
+from .point130_schemas import (
+    Point130Item,
+    Point130ScrapeResult,
+)
+from .comc_schemas import (
+    ComcItem,
+    ComcScrapeResult,
+)
+from .goldin_schemas import (
+    GoldinItem,
+    GoldinScrapeResult,
+)
 
 __all__ = [
     # Base schemas
@@ -32,4 +44,13 @@ __all__ = [
     'EbayCondition',
     'EbayScrapeResult',
     'EbaySearchFilters',
+    # 130Point schemas
+    'Point130Item',
+    'Point130ScrapeResult',
+    # COMC schemas
+    'ComcItem',
+    'ComcScrapeResult',
+    # Goldin schemas
+    'GoldinItem',
+    'GoldinScrapeResult',
 ]

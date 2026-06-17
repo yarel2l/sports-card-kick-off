@@ -9,6 +9,8 @@ from django.core.validators import URLValidator, EmailValidator
 from django.utils.translation import gettext_lazy as _
 from solo.models import SingletonModel
 
+from .fields import EncryptedCharField
+
 
 class SystemConfiguration(SingletonModel):
     """
@@ -146,36 +148,33 @@ class SystemConfiguration(SingletonModel):
     # API Keys & External Services
     # ========================================================================
 
-    openai_api_key = models.CharField(
-        max_length=512,
+    # NOTE: these are encrypted at rest via EncryptedCharField. Application code
+    # still reads/writes plain strings; only the database holds ciphertext.
+    openai_api_key = EncryptedCharField(
         blank=True,
         verbose_name=_('OpenAI API Key'),
         help_text=_('API key for OpenAI/ChatGPT (for LLM-based scraping)')
     )
 
-    openai_org_id = models.CharField(
-        max_length=512,
+    openai_org_id = EncryptedCharField(
         blank=True,
         verbose_name=_('OpenAI Organization ID'),
         help_text=_('Optional: OpenAI organization ID')
     )
 
-    anthropic_api_key = models.CharField(
-        max_length=512,
+    anthropic_api_key = EncryptedCharField(
         blank=True,
         verbose_name=_('Anthropic API Key'),
         help_text=_('API key for Claude (alternative LLM)')
     )
 
-    google_api_key = models.CharField(
-        max_length=512,
+    google_api_key = EncryptedCharField(
         blank=True,
         verbose_name=_('Google AI API Key'),
         help_text=_('API key for Google Gemini models')
     )
 
-    huggingface_api_key = models.CharField(
-        max_length=512,
+    huggingface_api_key = EncryptedCharField(
         blank=True,
         verbose_name=_('HuggingFace API Key'),
         help_text=_('API key for HuggingFace Inference API (optional)')

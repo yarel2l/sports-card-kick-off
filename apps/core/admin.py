@@ -20,8 +20,8 @@ class SystemConfigurationAdmin(SingletonModelAdmin):
             'fields': (
                 'site_name',
                 'site_description',
-                'site_logo',
-                'site_favicon',
+                'apple_store_url',
+                'google_play_url',
             ),
             'description': 'Configure site branding and identity'
         }),
@@ -29,7 +29,6 @@ class SystemConfigurationAdmin(SingletonModelAdmin):
             'fields': (
                 'meta_keywords',
                 'meta_author',
-                'og_image',
             ),
             'description': 'SEO and social media meta tags'
         }),

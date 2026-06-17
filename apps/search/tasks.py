@@ -48,21 +48,53 @@ def execute_search_task(self, search_id: str) -> Dict[str, Any]:
                 'search_id': search_id
             }
         
-        # Update status to PROCESSING
+        # Update status to PROCESSING and populate the parsed query components
+        # (player_name, card_year, card_set, grade) so they can be used for
+        # filtering and analytics instead of being left empty.
         search.status = Search.Status.PROCESSING
-        search.save(update_fields=['status'])
+        update_fields = ['status']
+        try:
+            from apps.catalog.services.title_parser import parse_title
+            parsed_query = parse_title(search.query)
+            search.player_name = parsed_query.player_name
+            search.card_year = parsed_query.year
+            search.card_set = parsed_query.set_name or parsed_query.brand
+            if parsed_query.grading_company and parsed_query.grade:
+                search.grade = f"{parsed_query.grading_company} {parsed_query.grade}"
+            update_fields += ['player_name', 'card_year', 'card_set', 'grade']
+        except Exception as parse_error:
+            logger.warning(f"Failed to parse query components: {parse_error}")
+        search.save(update_fields=update_fields)
+
+        # Push a real-time status update to the owner (best-effort).
+        try:
+            from config.channels.notify import notify_search_update
+            notify_search_update(search)
+        except Exception as ws_error:
+            logger.debug(f"Realtime search push failed: {ws_error}")
         
         logger.info(f"Starting scraping task for search {search_id}: '{search.query}'")
         
-        # Create orchestrator and execute scraping
-        # We need to run async code in sync context
-        orchestrator = ScraperOrchestrator(use_llm=False)  # Using traditional parsing for stability
-        
+        # Decide whether to use LLM extraction based on system configuration:
+        # only enable it when explicitly turned on AND a provider key is set,
+        # otherwise fall back to traditional parsing for stability.
+        try:
+            from apps.core.models import SystemConfiguration
+            config = SystemConfiguration.get_solo()
+            use_llm = bool(config.use_llm_by_default) and bool(config.get_active_llm_provider())
+        except Exception as config_error:
+            logger.warning(f"Could not load LLM configuration, defaulting to traditional: {config_error}")
+            use_llm = False
+
+        # Create orchestrator and execute scraping. Passing agents=None runs every
+        # agent registered in the scraping registry (multi-source), not just eBay.
+        orchestrator = ScraperOrchestrator(use_llm=use_llm)
+
         # Run async orchestrator in sync context
         result = asyncio.run(
             orchestrator.orchestrate(
                 query=search.query,
-                agents=['ebay']  # Currently only eBay is implemented
+                agents=None,
             )
         )
         
@@ -122,6 +154,24 @@ def execute_search_task(self, search_id: str) -> Dict[str, Any]:
                             ),
                         }
                     )
+
+                    # Resolve each listing into the canonical catalog and record
+                    # price observations. Best-effort: never let catalog ingestion
+                    # break the search flow.
+                    try:
+                        from apps.catalog.services.ingest import ingest_items
+                        observations = ingest_items(
+                            result_data['items'], source=agent_name
+                        )
+                        logger.info(
+                            f"Catalog: ingested {len(observations)} price "
+                            f"observations from {agent_name}"
+                        )
+                    except Exception as ingest_error:
+                        logger.error(
+                            f"Catalog ingestion failed for {agent_name}: {ingest_error}",
+                            exc_info=True,
+                        )
                     
                     if result_status == ScrapeResult.Status.SUCCESS:
                         successful_sites += 1
@@ -194,7 +244,14 @@ def execute_search_task(self, search_id: str) -> Dict[str, Any]:
             'status', 'total_sites', 'successful_sites', 'failed_sites',
             'total_items_found', 'execution_time_seconds', 'completed_at'
         ])
-        
+
+        # Push the final status to the owner in real time (best-effort).
+        try:
+            from config.channels.notify import notify_search_update
+            notify_search_update(search)
+        except Exception as ws_error:
+            logger.debug(f"Realtime search push failed: {ws_error}")
+
         # Create search history entry
         SearchHistory.objects.create(
             user=search.user,

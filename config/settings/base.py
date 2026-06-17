@@ -15,8 +15,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-default-key-change-in-production')
 
+# Application-level field encryption (apps.core.fields.EncryptedCharField).
+# Provide one or more comma-separated urlsafe-base64 Fernet keys via
+# FIELD_ENCRYPTION_KEY (first encrypts, all are tried on decrypt for rotation).
+# If unset, a key is derived from SECRET_KEY — fine for dev, NOT for production.
+FIELD_ENCRYPTION_KEYS = config(
+    'FIELD_ENCRYPTION_KEY',
+    default='',
+    cast=lambda v: [s.strip() for s in v.split(',') if s.strip()],
+)
+
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Driven by environment so production defaults to a safe value. Each
+# environment-specific settings module may override this explicitly.
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 
 # Application definition
@@ -49,6 +61,8 @@ INSTALLED_APPS = [
     'apps.accounts',
     'apps.scraping',
     'apps.search',
+    'apps.catalog',
+    'apps.portfolio',
 
 ]
 
@@ -64,7 +78,9 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'config.urls'
-CORS_ALLOW_ALL_ORIGINS = True
+# Closed by default. Development settings may open this up; production should
+# set CORS_ALLOWED_ORIGINS explicitly to the trusted frontend domains.
+CORS_ALLOW_ALL_ORIGINS = False
 
 TEMPLATES = [
     {
@@ -234,20 +250,11 @@ CELERY_TASK_QUEUES = {
 # Configuración específica de django-celery-beat
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 CELERY_BEAT_SCHEDULE = {
-    # 'clear_inactive_devices_channels': {
-    #     'task': 'devices.tasks.clear_inactive_devices_channels',
-    #     'schedule': crontab(minute='*/5'), # Ejecutar cada 15 minutos
-    #     'options': {
-    #         'queue': 'devices_queue',
-    #     },
-    # },
-    # 'clear_notifications_monthly': {
-    #     'task': 'notifications.tasks.clear_notifications_monthly',
-    #     'schedule': crontab(minute=0, hour=0, day_of_month=1), # Ejecutar el primer día de cada mes
-    #     'options': {
-    #         'queue': 'notifications_queue',
-    #     },
-    # },
+    # Weekly portfolio digest: Mondays at 08:00 UTC.
+    'send_portfolio_digests': {
+        'task': 'apps.portfolio.tasks.send_portfolio_digests',
+        'schedule': crontab(minute=0, hour=8, day_of_week=1),
+    },
 }
 
 # JWT Configuration
@@ -305,6 +312,14 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 100,
+    # Rate limiting. Sensitive auth endpoints use scoped throttles (applied per
+    # view); these are the production defaults. Development/test settings relax
+    # them so the suite is not affected.
+    'DEFAULT_THROTTLE_RATES': {
+        'auth_login': '10/min',
+        'auth_register': '5/hour',
+        'auth_password_reset': '5/hour',
+    },
 }
 
 # ==================================#
