@@ -11,6 +11,8 @@ from .auth import (
     PasswordResetConfirmView,
     PasswordChangeView,
     CurrentUserView,
+    EmailVerificationView,
+    AccountDeleteView,
 )
 
 __all__ = [
@@ -22,4 +24,6 @@ __all__ = [
     'PasswordResetConfirmView',
     'PasswordChangeView',
     'CurrentUserView',
+    'EmailVerificationView',
+    'AccountDeleteView',
 ]

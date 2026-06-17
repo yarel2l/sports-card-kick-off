@@ -5,6 +5,8 @@ This module implements the search functionality with specialized APIViews
 following REST best practices and matching the project's architecture pattern.
 """
 
+import logging
+
 from django.db.models import Avg, Count, Q, Sum
 from django.utils.translation import gettext_lazy as _
 from drf_spectacular.utils import (
@@ -31,6 +33,8 @@ from ..serializers import (
     UserStatsSerializer,
 )
 from ..tasks import execute_search_task
+
+logger = logging.getLogger(__name__)
 
 
 class CreateSearchView(generics.CreateAPIView):
@@ -151,9 +155,14 @@ class CreateSearchView(generics.CreateAPIView):
     def perform_create(self, serializer):
         """Create search and trigger Celery task."""
         search = serializer.save(user=self.request.user)
-        
-        # Trigger async scraping task
-        execute_search_task.delay(str(search.id))
+
+        # Trigger async scraping task and remember its id so the search can be
+        # cancelled (the task can be revoked).
+        result = execute_search_task.delay(str(search.id))
+        task_id = getattr(result, 'id', None)
+        if isinstance(task_id, str) and task_id:
+            search.celery_task_id = task_id
+            search.save(update_fields=['celery_task_id'])
     
     def create(self, request, *args, **kwargs):
         """Override create to return full search data."""
@@ -619,12 +628,24 @@ class CancelSearchView(APIView):
             )
         
         previous_status = search.status
-        
-        # Update search status
-        search.status = Search.Status.FAILED
+
+        # Revoke the running Celery task (terminate it if already executing) so
+        # it stops scraping instead of running to completion.
+        if search.celery_task_id:
+            try:
+                from config.celery import app as celery_app
+                celery_app.control.revoke(search.celery_task_id, terminate=True)
+            except Exception as revoke_error:
+                logger.warning(
+                    "Failed to revoke task %s for search %s: %s",
+                    search.celery_task_id, search.id, revoke_error,
+                )
+
+        # Update search status to CANCELLED.
+        search.status = Search.Status.CANCELLED
         search.error_message = _('Search cancelled by user.')
         search.save(update_fields=['status', 'error_message'])
-        
+
         return Response(
             {
                 'message': _('Search cancelled successfully.'),

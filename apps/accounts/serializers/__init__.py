@@ -10,6 +10,7 @@ from .auth import (
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
     PasswordChangeSerializer,
+    EmailVerificationSerializer,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     'PasswordResetRequestSerializer',
     'PasswordResetConfirmSerializer',
     'PasswordChangeSerializer',
+    'EmailVerificationSerializer',
 ]

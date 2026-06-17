@@ -2,9 +2,13 @@
 Authentication and User Serializers.
 """
 
+from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -105,6 +109,14 @@ class UserLoginSerializer(serializers.Serializer):
             if not user.is_active:
                 raise serializers.ValidationError(
                     _('User account is disabled.'),
+                    code='authorization'
+                )
+
+            # Optionally require a verified email before login (off by default
+            # so this is a non-breaking change; enable via REQUIRE_EMAIL_VERIFICATION).
+            if getattr(settings, 'REQUIRE_EMAIL_VERIFICATION', False) and not user.email_verified:
+                raise serializers.ValidationError(
+                    _('Please verify your email address before logging in.'),
                     code='authorization'
                 )
 
@@ -236,3 +248,24 @@ class PasswordChangeSerializer(serializers.Serializer):
         user.set_password(self.validated_data['new_password'])
         user.save()
         return user
+
+
+class EmailVerificationSerializer(serializers.Serializer):
+    """Serializer for confirming an email address via uid + token."""
+
+    uid = serializers.CharField(required=True)
+    token = serializers.CharField(required=True)
+
+    def validate(self, attrs):
+        User = get_user_model()
+        try:
+            uid = force_str(urlsafe_base64_decode(attrs['uid']))
+            user = User.objects.get(pk=uid)
+        except (User.DoesNotExist, ValueError, TypeError, OverflowError):
+            raise serializers.ValidationError({'uid': _('Invalid verification link.')})
+
+        if not default_token_generator.check_token(user, attrs['token']):
+            raise serializers.ValidationError({'token': _('Invalid or expired token.')})
+
+        attrs['user'] = user
+        return attrs
