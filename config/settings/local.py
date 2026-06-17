@@ -40,6 +40,18 @@ ALLOWED_HOSTS = config(
 # Password validation is enabled by default from base.py
 # Do not disable AUTH_PASSWORD_VALIDATORS in development to ensure proper testing
 
+# Relax auth throttling in development and the test suite. Production enforces
+# the strict limits defined in base.py. Tests that exercise throttling override
+# these explicitly.
+REST_FRAMEWORK = {
+    **REST_FRAMEWORK,
+    'DEFAULT_THROTTLE_RATES': {
+        'auth_login': '100000/min',
+        'auth_register': '100000/min',
+        'auth_password_reset': '100000/min',
+    },
+}
+
 INTERNAL_IPS = ["127.0.0.1"]
 
 CELERYD_FORCE_EXECV = True

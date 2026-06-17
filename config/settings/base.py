@@ -15,6 +15,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-default-key-change-in-production')
 
+# Application-level field encryption (apps.core.fields.EncryptedCharField).
+# Provide one or more comma-separated urlsafe-base64 Fernet keys via
+# FIELD_ENCRYPTION_KEY (first encrypts, all are tried on decrypt for rotation).
+# If unset, a key is derived from SECRET_KEY — fine for dev, NOT for production.
+FIELD_ENCRYPTION_KEYS = config(
+    'FIELD_ENCRYPTION_KEY',
+    default='',
+    cast=lambda v: [s.strip() for s in v.split(',') if s.strip()],
+)
+
 # SECURITY WARNING: don't run with debug turned on in production!
 # Driven by environment so production defaults to a safe value. Each
 # environment-specific settings module may override this explicitly.
@@ -310,6 +320,14 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 100,
+    # Rate limiting. Sensitive auth endpoints use scoped throttles (applied per
+    # view); these are the production defaults. Development/test settings relax
+    # them so the suite is not affected.
+    'DEFAULT_THROTTLE_RATES': {
+        'auth_login': '10/min',
+        'auth_register': '5/hour',
+        'auth_password_reset': '5/hour',
+    },
 }
 
 # ==================================#

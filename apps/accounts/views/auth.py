@@ -13,6 +13,7 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.translation import gettext_lazy as _
 from rest_framework import status, generics, permissions
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView as BaseTokenRefreshView
@@ -111,6 +112,8 @@ class UserRegistrationView(generics.CreateAPIView):
     """
     serializer_class = UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth_register'
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -141,6 +144,8 @@ class UserLoginView(APIView):
     """
     permission_classes = [permissions.AllowAny]
     serializer_class = UserLoginSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth_login'
 
     @extend_schema(
         tags=['Authentication'],
@@ -343,6 +348,8 @@ class PasswordResetRequestView(APIView):
     """
     permission_classes = [permissions.AllowAny]
     serializer_class = PasswordResetRequestSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth_password_reset'
 
     @extend_schema(
         tags=['Password Management'],
