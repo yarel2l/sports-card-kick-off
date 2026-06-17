@@ -43,9 +43,11 @@ def _register_builtin_agents() -> None:
     # Imported lazily to avoid circular imports at module import time.
     from .ebay_agent import EbayAgent
     from .point130_agent import Point130Agent
+    from .comc_agent import ComcAgent
 
     register_agent('ebay', EbayAgent)
     register_agent('130point', Point130Agent)
+    register_agent('comc', ComcAgent)
 
 
 _register_builtin_agents()

@@ -19,6 +19,10 @@ from .point130_schemas import (
     Point130Item,
     Point130ScrapeResult,
 )
+from .comc_schemas import (
+    ComcItem,
+    ComcScrapeResult,
+)
 
 __all__ = [
     # Base schemas
@@ -39,4 +43,7 @@ __all__ = [
     # 130Point schemas
     'Point130Item',
     'Point130ScrapeResult',
+    # COMC schemas
+    'ComcItem',
+    'ComcScrapeResult',
 ]
