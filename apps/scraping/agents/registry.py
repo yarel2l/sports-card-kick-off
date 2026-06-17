@@ -42,8 +42,10 @@ def available_slugs() -> List[str]:
 def _register_builtin_agents() -> None:
     # Imported lazily to avoid circular imports at module import time.
     from .ebay_agent import EbayAgent
+    from .point130_agent import Point130Agent
 
     register_agent('ebay', EbayAgent)
+    register_agent('130point', Point130Agent)
 
 
 _register_builtin_agents()

@@ -15,6 +15,10 @@ from .ebay_schemas import (
     EbayScrapeResult,
     EbaySearchFilters,
 )
+from .point130_schemas import (
+    Point130Item,
+    Point130ScrapeResult,
+)
 
 __all__ = [
     # Base schemas
@@ -32,4 +36,7 @@ __all__ = [
     'EbayCondition',
     'EbayScrapeResult',
     'EbaySearchFilters',
+    # 130Point schemas
+    'Point130Item',
+    'Point130ScrapeResult',
 ]

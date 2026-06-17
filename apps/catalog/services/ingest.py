@@ -88,8 +88,15 @@ def ingest_item(
     ))
     company = _grading_company(_get(item, 'grade', 'grading_company'))
 
-    is_auction = bool(_get(item, 'listing', 'is_auction', default=False))
-    kind = PriceObservation.Kind.AUCTION if is_auction else PriceObservation.Kind.LISTING
+    # Determine the observation kind. Sources that report completed sales carry
+    # a ``sale_type`` (e.g. 130Point) and are recorded as SOLD — the most
+    # valuable signal for market value; otherwise fall back to listing/auction.
+    if item.get('sale_type'):
+        kind = PriceObservation.Kind.SOLD
+    elif bool(_get(item, 'listing', 'is_auction', default=False)):
+        kind = PriceObservation.Kind.AUCTION
+    else:
+        kind = PriceObservation.Kind.LISTING
 
     external_id = str(item.get('item_id') or item.get('epid') or '')
     url = str(item.get('url') or '')
