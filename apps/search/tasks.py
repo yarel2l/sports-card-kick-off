@@ -65,6 +65,13 @@ def execute_search_task(self, search_id: str) -> Dict[str, Any]:
         except Exception as parse_error:
             logger.warning(f"Failed to parse query components: {parse_error}")
         search.save(update_fields=update_fields)
+
+        # Push a real-time status update to the owner (best-effort).
+        try:
+            from config.channels.notify import notify_search_update
+            notify_search_update(search)
+        except Exception as ws_error:
+            logger.debug(f"Realtime search push failed: {ws_error}")
         
         logger.info(f"Starting scraping task for search {search_id}: '{search.query}'")
         
@@ -237,7 +244,14 @@ def execute_search_task(self, search_id: str) -> Dict[str, Any]:
             'status', 'total_sites', 'successful_sites', 'failed_sites',
             'total_items_found', 'execution_time_seconds', 'completed_at'
         ])
-        
+
+        # Push the final status to the owner in real time (best-effort).
+        try:
+            from config.channels.notify import notify_search_update
+            notify_search_update(search)
+        except Exception as ws_error:
+            logger.debug(f"Realtime search push failed: {ws_error}")
+
         # Create search history entry
         SearchHistory.objects.create(
             user=search.user,
