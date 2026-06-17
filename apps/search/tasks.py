@@ -68,15 +68,26 @@ def execute_search_task(self, search_id: str) -> Dict[str, Any]:
         
         logger.info(f"Starting scraping task for search {search_id}: '{search.query}'")
         
-        # Create orchestrator and execute scraping
-        # We need to run async code in sync context
-        orchestrator = ScraperOrchestrator(use_llm=False)  # Using traditional parsing for stability
-        
+        # Decide whether to use LLM extraction based on system configuration:
+        # only enable it when explicitly turned on AND a provider key is set,
+        # otherwise fall back to traditional parsing for stability.
+        try:
+            from apps.core.models import SystemConfiguration
+            config = SystemConfiguration.get_solo()
+            use_llm = bool(config.use_llm_by_default) and bool(config.get_active_llm_provider())
+        except Exception as config_error:
+            logger.warning(f"Could not load LLM configuration, defaulting to traditional: {config_error}")
+            use_llm = False
+
+        # Create orchestrator and execute scraping. Passing agents=None runs every
+        # agent registered in the scraping registry (multi-source), not just eBay.
+        orchestrator = ScraperOrchestrator(use_llm=use_llm)
+
         # Run async orchestrator in sync context
         result = asyncio.run(
             orchestrator.orchestrate(
                 query=search.query,
-                agents=['ebay']  # Currently only eBay is implemented
+                agents=None,
             )
         )
         

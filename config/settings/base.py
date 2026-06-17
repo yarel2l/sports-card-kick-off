@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'apps.scraping',
     'apps.search',
     'apps.catalog',
+    'apps.portfolio',
 
 ]
 

@@ -20,6 +20,7 @@ urlpatterns = [
     path('api/v1/system/', include('apps.core.urls', namespace='core')),
     path('api/v1/search/', include('apps.search.urls', namespace='search')),
     path('api/v1/catalog/', include('apps.catalog.urls', namespace='catalog')),
+    path('api/v1/portfolio/', include('apps.portfolio.urls', namespace='portfolio')),
 
     # Django Admin
     path("admin/", admin.site.urls),
