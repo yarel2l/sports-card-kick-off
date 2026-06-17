@@ -44,10 +44,12 @@ def _register_builtin_agents() -> None:
     from .ebay_agent import EbayAgent
     from .point130_agent import Point130Agent
     from .comc_agent import ComcAgent
+    from .goldin_agent import GoldinAgent
 
     register_agent('ebay', EbayAgent)
     register_agent('130point', Point130Agent)
     register_agent('comc', ComcAgent)
+    register_agent('goldin', GoldinAgent)
 
 
 _register_builtin_agents()

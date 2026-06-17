@@ -88,10 +88,15 @@ def ingest_item(
     ))
     company = _grading_company(_get(item, 'grade', 'grading_company'))
 
-    # Determine the observation kind. Sources that report completed sales carry
-    # a ``sale_type`` (e.g. 130Point) and are recorded as SOLD — the most
-    # valuable signal for market value; otherwise fall back to listing/auction.
-    if item.get('sale_type'):
+    # Determine the observation kind. An explicit ``observation_kind`` on the
+    # item wins (e.g. Goldin auction lots); otherwise sources that report
+    # completed sales carry a ``sale_type`` and are recorded as SOLD (the most
+    # valuable signal); otherwise fall back to listing/auction detection.
+    valid_kinds = {k.value for k in PriceObservation.Kind}
+    explicit_kind = item.get('observation_kind')
+    if explicit_kind in valid_kinds:
+        kind = explicit_kind
+    elif item.get('sale_type'):
         kind = PriceObservation.Kind.SOLD
     elif bool(_get(item, 'listing', 'is_auction', default=False)):
         kind = PriceObservation.Kind.AUCTION

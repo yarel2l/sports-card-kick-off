@@ -23,6 +23,10 @@ from .comc_schemas import (
     ComcItem,
     ComcScrapeResult,
 )
+from .goldin_schemas import (
+    GoldinItem,
+    GoldinScrapeResult,
+)
 
 __all__ = [
     # Base schemas
@@ -46,4 +50,7 @@ __all__ = [
     # COMC schemas
     'ComcItem',
     'ComcScrapeResult',
+    # Goldin schemas
+    'GoldinItem',
+    'GoldinScrapeResult',
 ]

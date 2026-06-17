@@ -3,6 +3,7 @@ from .scraper_agent import ScraperAgent
 from .ebay_agent import EbayAgent
 from .point130_agent import Point130Agent
 from .comc_agent import ComcAgent
+from .goldin_agent import GoldinAgent
 
 __all__ = [
     'BaseScraperAgent',
@@ -10,4 +11,5 @@ __all__ = [
     'EbayAgent',
     'Point130Agent',
     'ComcAgent',
+    'GoldinAgent',
 ]
