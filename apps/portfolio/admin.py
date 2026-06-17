@@ -1,6 +1,17 @@
 from django.contrib import admin
 
-from .models import PortfolioHolding, PriceAlert, WatchlistItem
+from .models import PortfolioHolding, PortfolioSnapshot, PriceAlert, WatchlistItem
+
+
+@admin.register(PortfolioSnapshot)
+class PortfolioSnapshotAdmin(admin.ModelAdmin):
+    list_display = (
+        'user', 'holdings_count', 'total_cost', 'total_market_value',
+        'total_unrealized_pl', 'captured_at',
+    )
+    search_fields = ('user__email',)
+    raw_id_fields = ('user',)
+    date_hierarchy = 'captured_at'
 
 
 @admin.register(WatchlistItem)

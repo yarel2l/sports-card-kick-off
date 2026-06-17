@@ -73,3 +73,46 @@ def send_alert_notification(alert) -> bool:
     except Exception:
         logger.exception("Failed to send price-alert email for alert %s", alert.id)
         return False
+
+
+def _fmt(value) -> str:
+    return f"${value:,.2f}" if value is not None else "n/a"
+
+
+def send_portfolio_digest_email(user, digest) -> bool:
+    """Email a user their portfolio digest. Best-effort, returns success."""
+    email = getattr(user, 'email', '') or ''
+    if not email:
+        return False
+    if not _notifications_enabled():
+        logger.info("Email notifications disabled; skipping digest for %s", user.pk)
+        return False
+
+    totals = digest['valuation']['totals']
+    change = digest['value_change']
+
+    lines = [
+        "Here is your Sports Card Kickoff portfolio summary.",
+        "",
+        f"Holdings: {totals['holdings_count']}",
+        f"Total cost: {_fmt(totals['total_cost'])}",
+        f"Market value: {_fmt(totals['total_market_value'])}",
+        f"Unrealized P&L: {_fmt(totals['total_unrealized_pl'])}",
+    ]
+    if change is not None:
+        direction = "up" if change >= 0 else "down"
+        lines.append(f"Change since last summary: {direction} {_fmt(abs(change))}")
+
+    try:
+        send_mail(
+            subject="Your Sports Card Kickoff portfolio summary",
+            message="\n".join(lines),
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+            recipient_list=[email],
+            fail_silently=False,
+        )
+        logger.info("Sent portfolio digest to %s", email)
+        return True
+    except Exception:
+        logger.exception("Failed to send portfolio digest for user %s", user.pk)
+        return False

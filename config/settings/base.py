@@ -250,20 +250,11 @@ CELERY_TASK_QUEUES = {
 # Configuración específica de django-celery-beat
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 CELERY_BEAT_SCHEDULE = {
-    # 'clear_inactive_devices_channels': {
-    #     'task': 'devices.tasks.clear_inactive_devices_channels',
-    #     'schedule': crontab(minute='*/5'), # Ejecutar cada 15 minutos
-    #     'options': {
-    #         'queue': 'devices_queue',
-    #     },
-    # },
-    # 'clear_notifications_monthly': {
-    #     'task': 'notifications.tasks.clear_notifications_monthly',
-    #     'schedule': crontab(minute=0, hour=0, day_of_month=1), # Ejecutar el primer día de cada mes
-    #     'options': {
-    #         'queue': 'notifications_queue',
-    #     },
-    # },
+    # Weekly portfolio digest: Mondays at 08:00 UTC.
+    'send_portfolio_digests': {
+        'task': 'apps.portfolio.tasks.send_portfolio_digests',
+        'schedule': crontab(minute=0, hour=8, day_of_week=1),
+    },
 }
 
 # JWT Configuration
