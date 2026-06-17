@@ -48,9 +48,23 @@ def execute_search_task(self, search_id: str) -> Dict[str, Any]:
                 'search_id': search_id
             }
         
-        # Update status to PROCESSING
+        # Update status to PROCESSING and populate the parsed query components
+        # (player_name, card_year, card_set, grade) so they can be used for
+        # filtering and analytics instead of being left empty.
         search.status = Search.Status.PROCESSING
-        search.save(update_fields=['status'])
+        update_fields = ['status']
+        try:
+            from apps.catalog.services.title_parser import parse_title
+            parsed_query = parse_title(search.query)
+            search.player_name = parsed_query.player_name
+            search.card_year = parsed_query.year
+            search.card_set = parsed_query.set_name or parsed_query.brand
+            if parsed_query.grading_company and parsed_query.grade:
+                search.grade = f"{parsed_query.grading_company} {parsed_query.grade}"
+            update_fields += ['player_name', 'card_year', 'card_set', 'grade']
+        except Exception as parse_error:
+            logger.warning(f"Failed to parse query components: {parse_error}")
+        search.save(update_fields=update_fields)
         
         logger.info(f"Starting scraping task for search {search_id}: '{search.query}'")
         

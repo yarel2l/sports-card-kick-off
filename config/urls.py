@@ -19,6 +19,7 @@ urlpatterns = [
     path('api/v1/auth/', include('apps.accounts.urls', namespace='auth')),
     path('api/v1/system/', include('apps.core.urls', namespace='core')),
     path('api/v1/search/', include('apps.search.urls', namespace='search')),
+    path('api/v1/catalog/', include('apps.catalog.urls', namespace='catalog')),
 
     # Django Admin
     path("admin/", admin.site.urls),
