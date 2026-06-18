@@ -218,6 +218,21 @@ def execute_search_task(self, search_id: str) -> Dict[str, Any]:
                 except Exception as e:
                     logger.error(f"Error saving error result for {agent_name}: {e}")
         
+        # If the user cancelled the search while it was running, don't overwrite
+        # the CANCELLED status with a computed final status.
+        current_status = (
+            Search.objects.filter(id=search_id)
+            .values_list('status', flat=True)
+            .first()
+        )
+        if current_status == Search.Status.CANCELLED:
+            logger.info(f"Search {search_id} was cancelled; skipping final status update")
+            return {
+                'success': True,
+                'search_id': search_id,
+                'status': Search.Status.CANCELLED,
+            }
+
         # Determine final search status
         if successful_sites > 0 and failed_sites == 0:
             final_status = Search.Status.COMPLETED

@@ -343,7 +343,7 @@ class CancelSearchAPITests(APITestCase):
         
         # Verify search was cancelled
         search.refresh_from_db()
-        self.assertEqual(search.status, Search.Status.FAILED)
+        self.assertEqual(search.status, Search.Status.CANCELLED)
         self.assertIsNotNone(search.error_message)
 
     def test_cancel_processing_search(self):
@@ -360,7 +360,7 @@ class CancelSearchAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         search.refresh_from_db()
-        self.assertEqual(search.status, Search.Status.FAILED)
+        self.assertEqual(search.status, Search.Status.CANCELLED)
 
     def test_cancel_completed_search_fails(self):
         """Test cannot cancel completed search."""
@@ -369,11 +369,26 @@ class CancelSearchAPITests(APITestCase):
             query='Test Query',
             status=Search.Status.COMPLETED
         )
-        
+
         url = reverse('search:cancel_search', kwargs={'search_id': search.id})
         response = self.client.post(url)
-        
+
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cancel_revokes_celery_task(self):
+        """Cancelling a search with a task id revokes the Celery task."""
+        search = Search.objects.create(
+            user=self.user, query='Test Query',
+            status=Search.Status.PROCESSING, celery_task_id='task-abc-123',
+        )
+        url = reverse('search:cancel_search', kwargs={'search_id': search.id})
+        with patch('config.celery.app.control.revoke') as mock_revoke:
+            response = self.client.post(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        mock_revoke.assert_called_once_with('task-abc-123', terminate=True)
+        search.refresh_from_db()
+        self.assertEqual(search.status, Search.Status.CANCELLED)
 
 
 class AvailableSitesAPITests(APITestCase):

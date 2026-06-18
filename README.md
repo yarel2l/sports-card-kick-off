@@ -282,6 +282,29 @@ black .
 flake8 apps/
 ```
 
+### Live Scraping Validation
+
+Unit tests parse fixture HTML so they are fast and deterministic. To validate an
+agent against the **real** site (selectors drift over time), use the live
+harness — it requires network access and a Playwright browser, so it is kept out
+of the default test suite.
+
+```bash
+# One-time: install the browser
+playwright install chromium
+
+# Run an agent live and print parsed items
+python manage.py scrape_live ebay "2018 Prizm Luka Doncic PSA 10"
+
+# Save the raw search HTML to tune selectors offline
+python manage.py scrape_live 130point "Mike Trout rookie" --dump-html /tmp/130.html
+
+# Opt-in live integration tests (skipped by default)
+RUN_LIVE_SCRAPE_TESTS=1 python manage.py test apps.scraping.tests.test_live_scraping
+```
+
+Available sources: `ebay`, `130point`, `comc`, `goldin`.
+
 ### Adding a New Target Site
 
 1. Create a new agent in `apps/scraping/agents/`

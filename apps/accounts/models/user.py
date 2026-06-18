@@ -37,6 +37,12 @@ class User(AbstractUser):
         verbose_name=_('Active')
     )
 
+    email_verified = models.BooleanField(
+        default=False,
+        help_text=_('Whether the user has confirmed their email address'),
+        verbose_name=_('Email Verified')
+    )
+
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
 

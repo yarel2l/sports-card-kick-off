@@ -28,10 +28,36 @@ from ..serializers import (
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
     PasswordChangeSerializer,
+    EmailVerificationSerializer,
 )
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+
+
+def send_email_verification(user, request):
+    """Email the user a link to verify their address. Best-effort."""
+    if not user.email:
+        return False
+    try:
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        verify_url = (
+            f"{request.build_absolute_uri('/api/v1/auth/verify-email/')}{uid}/{token}/"
+        )
+        send_mail(
+            subject=str(_('Verify your email address')),
+            message=str(_(
+                'Confirm your email to activate your account: %(url)s'
+            )) % {'url': verify_url},
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+            recipient_list=[user.email],
+            fail_silently=True,
+        )
+        return True
+    except Exception:
+        logger.exception('Failed to send verification email for user %s', user.pk)
+        return False
 
 
 @extend_schema_view(
@@ -119,6 +145,9 @@ class UserRegistrationView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+
+        # Send an email-verification link (best-effort).
+        send_email_verification(user, request)
 
         # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
@@ -961,3 +990,69 @@ class TokenRefreshView(BaseTokenRefreshView):
     def post(self, request, *args, **kwargs):
         """Handle token refresh request."""
         return super().post(request, *args, **kwargs)
+
+
+class EmailVerificationView(APIView):
+    """
+    Confirm a user's email address using the uid + token from the
+    verification email.
+    """
+    permission_classes = [permissions.AllowAny]
+    serializer_class = EmailVerificationSerializer
+
+    def _verify(self, request, uid=None, token=None):
+        data = {
+            'uid': uid or request.data.get('uid'),
+            'token': token or request.data.get('token'),
+        }
+        serializer = EmailVerificationSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+
+        if not user.email_verified:
+            user.email_verified = True
+            user.save(update_fields=['email_verified'])
+
+        return Response(
+            {'message': _('Email verified successfully.')},
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        tags=['Authentication'],
+        summary="Verify email address",
+        description="Confirm an email address with the uid and token sent by email.",
+        responses={200: OpenApiResponse(description="Email verified")},
+    )
+    def post(self, request, uid=None, token=None):
+        return self._verify(request, uid, token)
+
+    @extend_schema(tags=['Authentication'], summary="Verify email address (link)")
+    def get(self, request, uid=None, token=None):
+        # Allows the link in the verification email to confirm directly.
+        return self._verify(request, uid, token)
+
+
+class AccountDeleteView(APIView):
+    """
+    Permanently delete the authenticated user's account and all associated
+    data (GDPR right to erasure). Requires the current password for safety.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        tags=['User Profile'],
+        summary="Delete account",
+        description="Permanently delete the authenticated user's account. "
+                    "Provide the current password in the request body to confirm.",
+        responses={204: OpenApiResponse(description="Account deleted")},
+    )
+    def delete(self, request):
+        password = request.data.get('password')
+        if not password or not request.user.check_password(password):
+            return Response(
+                {'error': _('Password confirmation is required and must be correct.')},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        request.user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

@@ -16,6 +16,7 @@ class Search(models.Model):
         COMPLETED = 'COMPLETED', _('Completed')
         FAILED = 'FAILED', _('Failed')
         PARTIAL = 'PARTIAL', _('Partial Success')
+        CANCELLED = 'CANCELLED', _('Cancelled')
 
     id = models.UUIDField(
         primary_key=True,
@@ -107,6 +108,14 @@ class Search(models.Model):
         blank=True,
         null=True,
         verbose_name=_('Error Message')
+    )
+
+    celery_task_id = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text=_('ID of the Celery task processing this search (for cancellation)'),
+        verbose_name=_('Celery Task ID')
     )
 
     created_at = models.DateTimeField(
