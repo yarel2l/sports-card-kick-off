@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import MarketSummaryCard from "@/components/MarketSummary";
 import CompsTable from "@/components/CompsTable";
+import CardActions from "@/components/CardActions";
 import PriceHistoryChart from "@/components/PriceHistoryChart";
 import { getCardHistory, getCardPrices } from "@/lib/api";
 import { cardTitle, formatMoney } from "@/lib/format";
@@ -76,6 +77,8 @@ export default async function CardPage({
           </p>
         )}
       </div>
+
+      <CardActions cardId={card.id} />
 
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
