@@ -81,6 +81,12 @@ ROOT_URLCONF = 'config.urls'
 # Closed by default. Development settings may open this up; production should
 # set CORS_ALLOWED_ORIGINS explicitly to the trusted frontend domains.
 CORS_ALLOW_ALL_ORIGINS = False
+# Trusted browser origins (the Next.js frontend). Override per environment.
+CORS_ALLOWED_ORIGINS = config(
+    'CORS_ALLOWED_ORIGINS',
+    default='http://localhost:3000,http://127.0.0.1:3000',
+    cast=lambda v: [s.strip() for s in v.split(',') if s.strip()],
+)
 
 TEMPLATES = [
     {

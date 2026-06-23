@@ -50,3 +50,20 @@ class PriceObservationSerializer(serializers.ModelSerializer):
             'price', 'currency', 'url', 'match_confidence', 'observed_at',
         ]
         read_only_fields = fields
+
+
+class FeedObservationSerializer(serializers.ModelSerializer):
+    """A price observation with its full card, for the recent-sales feed."""
+
+    grading_company = serializers.CharField(
+        source="grading_company.code", read_only=True, default=None
+    )
+    card = CardSerializer(read_only=True)
+
+    class Meta:
+        model = PriceObservation
+        fields = [
+            "id", "card", "source", "kind", "grading_company", "grade",
+            "price", "currency", "url", "observed_at",
+        ]
+        read_only_fields = fields

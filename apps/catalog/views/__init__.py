@@ -6,6 +6,11 @@ from .catalog import (
     CatalogSearchView,
     PlayerListView,
 )
+from .discovery import (
+    AutocompleteView,
+    RecentSalesFeedView,
+    TrendingView,
+)
 
 __all__ = [
     'CardDetailView',
@@ -14,4 +19,7 @@ __all__ = [
     'CardPricesView',
     'CatalogSearchView',
     'PlayerListView',
+    'AutocompleteView',
+    'RecentSalesFeedView',
+    'TrendingView',
 ]

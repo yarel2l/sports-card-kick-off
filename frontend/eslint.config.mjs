@@ -13,6 +13,14 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    rules: {
+      // New, stricter rule in Next 16's plugin. It flags legitimate bootstrap
+      // patterns (e.g. setting an initial loading flag in an auth-init effect),
+      // so keep it as a warning rather than a hard error.
+      "react-hooks/set-state-in-effect": "warn",
+    },
+  },
 ]);
 
 export default eslintConfig;
