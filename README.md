@@ -282,6 +282,21 @@ black .
 flake8 apps/
 ```
 
+### Demo data
+
+To explore the full product without live scraping, seed a realistic dataset
+(canonical cards, price observations across grades/sources over time, plus a
+demo user with a portfolio, watchlist and alert):
+
+```bash
+python manage.py seed_demo            # create/refresh demo data
+python manage.py seed_demo --flush    # wipe catalog + demo user first
+```
+
+Then run the API and the frontend (`frontend/`) and browse search, card pages
+with price history, and the dashboard. Demo login:
+`demo@sportscardkickoff.com` / `demo12345`.
+
 ### Live Scraping Validation
 
 Unit tests parse fixture HTML so they are fast and deterministic. To validate an
