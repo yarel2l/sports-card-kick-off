@@ -62,7 +62,15 @@ class CardSet(models.Model):
 
     @property
     def display_name(self) -> str:
-        return f"{self.year} {self.brand} {self.name}".strip()
+        # Avoid repeating the brand when the set name is the brand itself
+        # ("Fleer"/"Fleer") or already includes it ("Bowman"/"Bowman Chrome").
+        name = (self.name or "").strip()
+        brand = (self.brand or "").strip()
+        if not name or name.lower() == brand.lower():
+            return f"{self.year} {brand}".strip()
+        if name.lower().startswith(brand.lower()):
+            return f"{self.year} {name}".strip()
+        return f"{self.year} {brand} {name}".strip()
 
     def __str__(self):
         return self.display_name
